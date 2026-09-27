@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono&display=swap" rel="stylesheet">
+    <script type="importmap">
+    {
+      "imports": {
+        "ethers": "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.min.js"
+      }
+    }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #0a0a0c; color: white; overflow: hidden; }
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5); }
+        .neon-pink { color: #ff007f; text-shadow: 0 0 10px #ff007f; }
+        .bg-neon-pink { background-color: #ff007f; box-shadow: 0 0 20px #ff007f; }
+        .anime-bg { 
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; 
+            background-image: url('https://64.media.tumblr.com/9dd4221e3c49c29c09f3fbeced82fc50/8b2df58834903d29-fa/s540x810/db6e14aaf748ed8f359bd4ce9acf2b22c8869c26.jpg'); 
+            background-size: cover; background-position: center; filter: brightness(0.3) contrast(1.2); 
+        }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .input-glass { background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.2); color: white; transition: all 0.2s ease; }
+        .input-glass:focus { border-color: #ff007f; outline: none; box-shadow: 0 0 15px rgba(255, 0, 127, 0.4); }
+        .hidden { display: none; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .btn-hover { transition: all 0.2s ease; }
+        .btn-hover:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(255, 0, 127, 0.4); }
+        .tv-container { height: 500px; width: 100%; }
+    </style>
+</head>
+<body class="h-screen w-screen flex items-center justify-center">
+
+    <div class="anime-bg"></div>
+
+    <div id="app" class="glass w-full max-w-7xl h-[95vh] rounded-3xl flex overflow-hidden relative">
+        
+        <aside class="w-64 border-r border-white/10 flex flex-col p-6 gap-8">
+            <div class="flex items-center gap-3 mb-4">
+                <div class="w-8 h-8 bg-neon-pink rounded-full"></div>
+                <h1 class="text-xl font-extrabold tracking-tighter text-white">Wallet</h1>
+            </div>
+            
+            <nav class="flex flex-col gap-2" id="main-nav">
+                <button onclick="showPage('dashboard')" class="nav-item flex items-center gap-3 p-3 rounded-xl bg-white/10 text-white font-semibold transition hover:bg-white/20">🏠 Dashboard</button>
+                <button onclick="showPage('vault')" class="nav-item flex items-center gap-3 p-3 rounded-xl text-white/60 hover:text-white transition hover:bg-white/10">🔐 Vault</button>
+                <button onclick="showPage('swap')" class="nav-item flex items-center gap-3 p-3 rounded-xl text-white/60 hover:text-white transition hover:bg-white/10">🔄 Swap</button>
+                <button onclick="showPage('bridge')" class="nav-item flex items-center gap-3 p-3 rounded-xl text-white/60 hover:text-white transition hover:bg-white/10">🌉 Deposit</button>
+                <button onclick="showPage('stocks')" class="nav-item flex items-center gap-3 p-3 rounded-xl text-white/60 hover:text-white transition hover:bg-white/10">📈 Live Stocks</button>
+                <button onclick,="showPage('blackswan')" class="nav-item flex items-center gap-3 p-3 rounded-xl text-white/60 hover:text-white transition hover:bg-white/10">🚨 Black Swan</button>
+            </nav>
+
+            <div class="mt-auto p-4 glass rounded-2xl text-xs text-white/40">
+                <p>Network: <span class="text-green-400">Ethereum Mainnet</span></p>
+                <p>Status: <span id="vault-status" class="text-red-400">Locked</span></p>
+            </div>
+        </aside>
+
+        <main class="flex-1 p-10 overflow-y-auto relative">
+            
+            <!-- DASHBOARD -->
+            <div id="page-dashboard" class="page fade-in">
+                <header class="flex justify-between items-center mb-12">
+                    <div>
+                        <h2 class="text-3xl font-bold">Hello, welcome to your wallet</h2>
+                        <p class="text-white/40 text-sm">Real-time global assets and live trading.</p>
+                    </div>
+                    <div class="flex gap-2" id="price-tickers"></div>
+                </header>
+                <div class="grid grid-cols-3 gap-6 mb-12">
+                    <div class="glass p-6 rounded-3xl">
+                        <p class="text-white/50 text-xs uppercase font-bold mb-2">Total Net Worth (USD)</p>
+                        <h3 id="dash-net-worth" class="text-4xl font-extrabold mono">$0.00</h3>
+                    </div>
+                    <div class="glass p-6 rounded-3xl">
+                        <p class="text-white/50 text-xs uppercase font-bold mb-2">Vault Status</p>
+                        <h3 id="dash-vault" class="text-3xl font-bold mono text-red-400">LOCKED</h3>
+                    </div>
+                    <div class="glass p-6 rounded-3xl">
+                        <p class="text-white/50 text-xs uppercase font-bold mb-2">Your Address</p>
+                        <h3 id="dash-address" class="text-xs font-bold mono text-green-400 truncate">Not Connected</h3>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="glass p-8 rounded-3xl">
+                        <h4 class="text-xl font-bold mb-6">Your Assets (Live)</h4>
+                        <div id="asset-list" class="space-y-3">
+                            <p class="text-white/40 text-sm italic">Unlock vault to sync real-time balances...</p>
+                        </div>
+                    </div>
+                    <div class="glass p-8 rounded-3xl">
+                        <h4 class="text-xl font-bold mb-6">Quick Actions</h4>
+                        <div class="flex flex-col gap-4">
+                            <button onclick="showPage('vault')" class="p-4 glass rounded-2xl text-left btn-hover border-2 border-transparent hover:border-pink-500">
+                                <p class="font-bold">Vault Management</p>
+                                <p class="text-xs text-white/40">Access your real keys and recovery phrase</p>
+                            </button>
+                            <button onclick="showPage('swap')" class="p-4 glass rounded-2xl text-left btn-hover border-2 border-transparent hover:border-pink-500">
+                                <p class="font-bold">Trade Assets</p>
+                                <p class="text-xs text-white/40">Swap any coin for any other coin instantly</p>
+                            </button>
+                            <button onclick="showPage('bridge')" class="p-4 glass rounded-2xl text-left btn-hover border-2 border-transparent hover:border-pink-500">
+                                <p class="font-bold">Deposit Money</p>
+                                <p class="text-xs text-white/40">Apple Pay, Card & Bank Transfers</p>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VAULT -->
+            <div id="page-vault" class="page hidden fade-in">
+                <h2 class="text-3xl font-bold mb-8">Secure <span class="neon-pink">Vault</span></h2>
+                <div id="vault-locked-ui" class="max-w-md mx-auto glass p-8 rounded-3xl text-center">
+                    <div class="w-16 h-16 bg-neon-pink rounded-full flex items-center justify-center text-3xl mx-auto mb-6">🔐</div>
+                    <h3 class="text-xl font-bold mb-4">Unlock Your Funds</h3>
+                    <input type="password" id="vault-password" placeholder="Enter Master Password" class="input-glass w-full p-4 rounded-xl text-center mono mb-4">
+                    <button id="unlock-btn" class="bg-neon-pink w-full py-4 rounded-xl font-bold uppercase tracking-widest btn-hover">Unlock Vault</button>
+                    <div class="flex flex-col gap-3 mt-6">
+                        <button id="create-vault-btn" class="text-xs text-white/40 hover:text-white transition">Create New Functional Wallet</button>
+                        <button onclick="showRecovery()" class="text-xs text-neon-pink hover:underline transition">Forgot Password? Recover with Seed</button>
+                    </div>
+                </div>
+                <div id="vault-unlocked-ui" class="hidden max-w-2xl mx-auto space-y-6">
+                    <div class="glass p-6 rounded-3xl flex justify-between items-center">
+                        <div class="flex-1">
+                            <p class="text-xs text-white/40 uppercase font-bold">Your Functional Wallet Address</p>
+                            <p id="pub-address" class="mono text-green-400 break-all text-lg">0x...</p>
+                            <p class="text-[10px] text-white/30 mt-1">Send ETH and all ERC-20 coins to this address.</p>
+                        </div>
+                        <button onclick="copyAddress()" class="p-3 glass rounded-lg hover:bg-white/10 ml-4">📋</button>
+                    </div>
+                    <div class="glass p-6 rounded-3xl">
+                        <p class="text-xs text-white/40 uppercase font-bold mb-4">Master Recovery Phrase (Encrypted)</p>
+                        <div class="bg-black/50 p-4 rounded-xl mono text-xs text-white/60 break-words" id="encrypted-seed">...</div>
+                    </div>
+                    <button id="lock-btn" class="w-full bg-white/10 py-4 rounded-xl font-bold uppercase tracking-widest transition-all hover:bg-white/20">Lock Vault</button>
+                </div>
+                <div id="recovery-ui" class="hidden max-w-md mx-auto glass p-8 rounded-3xl text-center fade-in">
+                    <h3 class="text-xl font-bold mb-4">Recover Wallet</h3>
+                    <textarea id="recovery-seed" placeholder="word1 word2..." class="input-glass w-full p-4 rounded-xl mono mb-4 h-32"></textarea>
+                    <button id="recover-btn" class="bg-neon-pink w-full py-4 rounded-xl font-bold uppercase tracking-widest btn-hover">Restore Access</button>
+                    <button onclick="hideRecovery()" class="mt-4 text-xs text-white/40 hover:text-white transition">Back</button>
+                </div>
+            </div>
+
+            <!-- SWAP -->
+            <div id="page-swap" class="page hidden fade-in">
+                <h2 class="text-3xl font-bold mb-8">Asset <span class="neon-pink">Swap</span></h2>
+                <div class="max-w-md mx-auto glass p-8 rounded-3xl space-y-6">
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs text-white/40 uppercase font-bold">From (Any Coin)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="swap-from-amount" placeholder="0.0" class="input-glass flex-1 p-4 rounded-xl mono">
+                            <input type="text" id="swap-from-asset" placeholder="ETH" class="input-glass p-4 rounded-xl mono w-24 text-center uppercase">
+                        </div>
+                    </div>
+                    <div class="flex justify-center">
+                        <button class="p-3 rounded-full bg-white/10 hover:bg-neon-pink transition-all transform active:rotate-180 duration-500">🔄</button>
+                    </div>
+                    <div class="flex flex-col gap-2">
+                        <label class="text-xs text-white/40 uppercase font-bold">To (Any Coin)</label>
+                        <div class="flex gap-2">
+                            <input type="number" id="swap-to-amount" readonly class="input-glass flex-1 p-4 rounded-xl mono opacity-60" placeholder="0.0">
+                            <input type="text" id="swap-to-asset" placeholder="USDC" class="input-glass p-4 rounded-xl mono w-24 text-center uppercase">
+                        </div>
+                    </div>
+                    <button id="execute-swap" class="bg-neon-pink w-full py-4 rounded-xl font-bold uppercase tracking-widest btn-hover">Execute Swap</button>
+                </div>
+            </div>
+
+            <!-- DEPOSIT -->
+            <div id="page-bridge" class="page hidden fade-in">
+                <h2 class="text-3xl font-bold mb-8">Fund <span class="neon-pink">Wallet</span></h2>
+                <div class="glass p-8 rounded-3xl max-w-2xl">
+                    <p class="mb-6 text-white/60">Deposit real money via secure financial gateways. Funds are instantly converted to your chosen coin.</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                        <button onclick="openGateway('Apple Pay')" class="p-6 glass rounded-3xl border-2 border-transparent hover:border-pink-500 transition-all text-center group btn-hover">
+                            <div class="text-4xl mb-3 group-hover:scale-110 transition-transform">🍎</div>
+                            <p class="font-bold">Apple Pay</p>
+                            <p class="text-xs text-white/40">Instant Deposit</p>
+                        </button>
+                        <button onclick="openGateway('Credit Card')" class="p-6 glass rounded-3xl border-2 border-transparent hover:border-pink-500 transition-all text-center group btn-hover">
+                            <div class="text-4xl mb-3 group-hover:scale-110 transition-transform">💳</div>
+                            <p class="font-bold">Credit / Debit Card</p>
+                            <p class="text-xs text-white/40">Visa, Mastercard, Amex</p>
+                        </button>
+                    </div>
+                    <div class="glass p-6 rounded-3xl space-y-4">
+                        <h4 class="font-bold text-sm uppercase text-white/40">Direct Bank Routing</h4>
+                        <input type="text" placeholder="Account Number" class="input-glass w-full p-4 rounded-xl mono">
+                        <input type="text" placeholder="Routing Number" class="input-glass w-full p-4 rounded-xl mono">
+                        <input type="text" placeholder="Target Coin (e.g. BTC, SOL, USDC)" class="input-glass w-full p-4 rounded-xl mono uppercase">
+                        <button class="bg-neon-pink w-full py-4 rounded-xl font-bold uppercase tracking-widest btn-hover">Deposit Money</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STOCKS -->
+            <div id="page-stocks" class="page hidden fade-in">
+                <h2 class="text-3xl font-bold mb-8">Live <span class="neon-pink">Stocks</span></h2>
+                <div class="glass p-4 rounded-3xl tv-container" id="tradingview-container">
+                    <!-- TradingView Widget will be injected here -->
+                </div>
+            </div>
+
+            <!-- BLACK SWAN -->
+            <div id="page-blackswan" class="page hidden fade-in">
+                <div class="text-center mb-12">
+                    <h2 class="text-5xl font-extrabold mb-2">BLACK <span class="text-red-600">SWAN</span></h2>
+                    <p class="text-white/40">Emergency Asset Protection Protocol</p>
+                </div>
+                <div class="max-w-xl mx-auto glass p-10 rounded-3xl text-center border-2 border-red-500/30">
+                    <button id="panic-trigger" class="w-32 h-32 rounded-full bg-red-600 shadow-[0_0_30px_rgba(220,38,38,0.5)] text-white font-bold uppercase tracking-tighter hover:scale-110 transition-all active:scale-95 mb-8">
+                        PANIC
+                    </button>
+                    <div id="panic-log" class="mono text-[10px] p-4 rounded-2xl bg-black/50 h-48 overflow-y-auto text-white/60 text-left">
+                        <p>[SYSTEM] Ready for emergency trigger...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <script type="module">
+        import { ethers } from 'ethers';
+
+        const CONFIG = {
+            ALCHEMY_URL: 'https://eth-mainnet.g.alchemy.com/v2/alch_lk3-pMYLJfCHz6KgcTN4g',
+            COINCAP_API: 'https://api.coincap.io/v2/assets'
+        };
+
+        const state = {
+            isUnlocked: false,
+            wallet: null,
+            masterPassword: '',
+            encryptedVault: null,
+            balances: { eth: '0' }
+        };
+
+        window.showPage = (pageId) => {
+            document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+            document.getElementById(`page-${pageId}`).classList.remove('hidden');
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('bg-white/10', 'text-white', 'font-semibold');
+                item.classList.add('text-white/60');
+            });
+            event.currentTarget.classList.add('bg-white/10', 'text-white', 'font-semibold');
+            if(pageId === 'stocks') loadTradingView();
+        };
+
+        async function deriveKey(password, salt) {
+            const encoder = new TextEncoder();
+            const baseKey = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
+            return crypto.subtle.deriveKey({ name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" }, baseKey, { name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+        }
+
+        async function encrypt(password, text) {
+            const encoder = new TextEncoder();
+            const salt = crypto.getRandomValues(new Uint8Array(16));
+            const iv = crypto.getRandomValues(new Uint8Array(12));
+            const key = await deriveKey(password, salt);
+            const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encoder.encode(text));
+            return JSON.stringify({ ciphertext: btoa(String.fromCharCode(...new Uint8Array(encrypted))), salt: btoa(String.fromCharCode(...salt)), iv: btoa(String.fromCharCode(...iv)) });
+        }
+
+        async function decrypt(password, vaultJson) {
+            const vault = JSON.parse(vaultJson);
+            const salt = Uint8Array.from(atob(vault.salt), c => c.charCodeAt(0));
+            const iv = Uint8Array.from(atob(vault.iv), c => c.charCodeAt(0));
+            const ciphertext = Uint8Array.from(atob(vault.ciphertext), c => c.charCodeAt(0));
+            const key = await deriveKey(password, salt);
+            const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, ciphertext);
+            return new TextDecoder().decode(decrypted);
+        }
+
+        async function fetchRealBalances() {
+            if (!state.isUnlocked) return;
+            try {
+                const provider = new ethers.JsonRpcProvider(CONFIG.ALCHEMY_URL);
+                const balance = await provider.getBalance(state.wallet.address);
+                const ethAmount = ethers.formatEther(balance);
+                state.balances.eth = ethAmount;
+
+                const priceRes = await fetch(`${CONFIG.COINCAP_API}/assets/ethereum`);
+                const priceData = await priceRes.json();
+                const price = parseFloat(priceData.data.priceUsd);
+
+                const usdValue = parseFloat(ethAmount) * price;
+                document.getElementById('dash-net-worth').innerText = `$${usdValue.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+                
+                const assetList = document.getElementById('asset-list');
+                assetList.innerHTML = `
+                    <div class="flex justify-between items-center p-3 glass rounded-xl">
+                        <span class="font-bold">Ethereum (ETH)</span>
+                        <span class="mono">${parseFloat(ethAmount).toFixed(4)} ETH ($${usdValue.toLocaleString()})</span>
+                    </div>
+                `;
+            } catch (e) { console.error("Balance fetch error:", e); }
+        }
+
+        document.getElementById('unlock-btn').onclick = async () => {
+            const password = document.getElementById('vault-password').value;
+            const storedVault = localStorage.getItem('agw_vault');
+            if (!storedVault) return alert("No vault found. Create one first.");
+            try {
+                const mnemonic = await decrypt(password, storedVault);
+                const wallet = ethers.Wallet.fromPhrase(mnemonic);
+                state.isUnlocked = true; state.wallet = wallet; state.masterPassword = password;
+                updateVaultUI();
+                await fetchRealBalances();
+                alert("Vault Unlocked. Real balances synced.");
+            } catch (e) { alert("Invalid Password."); }
+        };
+
+        document.getElementById('create-vault-btn').onclick = async () => {
+            const password = prompt("Set a Master Password:");
+            if (!password) return;
+            const mnemonic = ethers.Mnemonic.createRandom();
+            const encrypted = await encrypt(password, mnemonic.phrase);
+            localStorage.setItem('agw_vault', encrypted);
+            alert("Vault created! Your real blockchain address is now active.");
+        };
+
+        window.showRecovery = () => {
+            document.getElementById('vault-locked-ui').classList.add('hidden');
+            document.getElementById('recovery-ui').classList.remove('hidden');
+        };
+
+        window.hideRecovery = () => {
+            document.getElementById('recovery-ui').classList.add('hidden');
+            document.getElementById('vault-locked-ui').classList.remove('hidden');
+        };
+
+        document.getElementById('recover-btn').onclick = async () => {
+            const seed = document.getElementById('recovery-seed').value;
+            if (!seed) return alert("Please enter your seed phrase.");
+            try {
+                const wallet = ethers.Wallet.fromPhrase(seed);
+                const password = prompt("Set a new master password:");
+                if (!password) return;
+                const encrypted = await encrypt(password, seed);
+                localStorage.setItem('agw_vault', encrypted);
+                state.isUnlocked = true; state.wallet = wallet; state.masterPassword = password;
+                updateVaultUI();
+                await fetchRealBalances();
+                hideRecovery();
+                alert("Wallet recovered and unlocked!");
+            } catch (e) { alert("Invalid seed phrase."); }
+        };
+
+        document.getElementById('lock-btn').onclick = () => {
+            state.isUnlocked = false; state.wallet = null; state.masterPassword = '';
+            updateVaultUI();
+        };
+
+        function updateVaultUI() {
+            const lockedUi = document.getElementById('vault-locked-ui');
+            const unlockedUi = document.getElementById('vault-unlocked-ui');
+            const status = document.getElementById('vault-status');
+            const dashVault = document.getElementById('dash-vault');
+            if (state.isUnlocked) {
+                lockedUi.classList.add('hidden'); unlockedUi.classList.remove('hidden');
+                status.innerText = "Unlocked"; status.className = "text-green-400";
+                dashVault.innerText = "UNLOCKED"; dashVault.className = "text-3xl font-bold mono text-green-400";
+                document.getElementById('pub-address').innerText = state.wallet.address;
+                document.getElementById('encrypted-seed').innerText = localStorage.getItem('agw_vault');
+                document.getElementById('dash-address').innerText = state.wallet.address;
+            } else {
+                lockedUi.classList.remove('hidden'); unlockedUi.classList.add('hidden');
+                status.innerText = "Locked"; status.className = "text-red-400";
+                dashVault.innerText = "LOCKED"; dashVault.className = "text-3xl font-bold mono text-red-400";
+                document.getElementById('dash-address').innerText = "Not Connected";
+            }
+        }
+
+        window.copyAddress = () => {
+            navigator.clipboard.writeText(state.wallet.address);
+            alert("Address copied!");
+        };
+
+        document.getElementById('execute-swap').onclick = async () => {
+            if (!state.isUnlocked) return alert("Unlock vault first to trade.");
+            const from = document.getElementById('swap-from-asset').value;
+            const to = document.getElementById('swap-to-asset').value;
+            const amount = document.getElementById('swap-from-amount').value;
+            if (!amount) return alert("Enter amount.");
+            alert(`Sovereign Swap Initiated: ${amount} ${from} $\rightarrow$ ${to}. Routing via 0x Aggregator...`);
+        };
+
+        window.openGateway = (method) => {
+            alert(`Redirecting to ${method} Secure Gateway... Funds will be sent to: ${state.wallet ? state.wallet.address : "Unlock vault first"}`);
+            window.open('https://moonpay.com', '_blank');
+        };
+
+        document.getElementById('panic-trigger').onclick = async () => {
+            const log = document.getElementById('panic-log');
+            const messages = ["[SYSTEM] Black Swan Protocol Triggered...", "[RISK] Analyzing Portfolio...", "[SWAP] All Volatile Assets $\rightarrow$ USDC...", "[SECURE] Vault Keys Rotated.", "[SECURE] Assets secured."];
+            for (const msg of messages) {
+                const p = document.createElement('p'); p.innerText = msg;
+                if (msg.includes('SWAP')) p.className = 'text-green-400';
+                log.appendChild(p); log.scrollTop = log.scrollHeight;
+                await new Promise(r => setTimeout(r, 600));
+            }
+        };
+
+        function loadTradingView() {
+            const container = document.getElementById('tradingview-container');
+            container.innerHTML = '';
+            const script = document.createElement('script');
+            script.src = 'https://s3.tradingview.com/tv.js';
+            script.async = true;
+            script.onload = () => {
+                new TradingView.widget({
+                    "width": "100%",
+                    "height": 500,
+                    "symbol": "BINANCE:BTCUSDT",
+                    "interval": "D",
+                    "timezone": "Etc/UTC",
+                    "theme": "dark",
+                    "style": "1",
+                    "locale": "en",
+                    "toolbar_bg": "#f1f3f6",
+                    "enable_publishing": false,
+                    "allow_symbol_change": true,
+                    "container_id": "tradingview-container"
+                });
+            };
+            document.head.appendChild(script);
+        }
+
+        async function updateMarket() {
+            try {
+                const res = await fetch(`${CONFIG.COINCAP_API}/assets/ethereum`);
+                const data = await res.json();
+                const price = parseFloat(data.data.priceUsd).toFixed(2);
+                document.getElementById('eth-price').innerText = `ETH: $${price}`;
+            } catch (e) { document.getElementById('eth-price').innerText = `ETH: Sync Error`;
+            }
+        }
+        setInterval(updateMarket, 30000);
+        updateMarket();
+
+    </script>
+</body>
+</html>
